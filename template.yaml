@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    MemorySize: 128
+    Timeout: 15
+
+Description: >
+  AWS App that take the loaded json file from S3 bucket
+  and save the data to the dynamoDB table
+
+Resources:
+  TestTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: test
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: test-data-vmt
+
+  LambdaHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: LambdaHandler_from_S3_to_DynamoDB
+      CodeUri: .
+      Handler: com.lambda.dynamo.s3.mapper.ParserV4::handleRequest
+      Description: Function that is called when a file is stored in S3.
+      Runtime: java8
+      MemorySize: 512
+      Timeout: 20
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TestTable
+        - S3CrudPolicy:
+            BucketName: 'test-data-vmt'
+        - SSMParameterReadPolicy:
+            ParameterName: parser/dev/*
+      Events:
+        S3BucketEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref S3Bucket
+            Events: 's3:ObjectCreated:*'
+

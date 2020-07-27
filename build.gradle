@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+}
+repositories {
+    mavenCentral()
+    jcenter()
+}
+java {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+}
+group 'com.lambda'
+version '1'
+
+ext {
+    jacksonDataBindVersion = '2.9.8'
+    amazonDynamoSdk = '1.11.659'
+}
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    enabled = true
+    from {configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}
+
+
+dependencies {
+    compile 'com.amazonaws:aws-java-sdk-lambda:1.11.629'
+//    compile 'com.amazonaws:aws-java-sdk-ssm:1.11.700'
+    implementation group: 'com.amazonaws', name: 'aws-java-sdk-ssm', version: '1.11.700'
+    compile 'org.apache.commons:commons-lang3:3.9'
+    compile 'com.amazonaws:aws-lambda-java-core:1.2.0'
+    compile 'com.amazonaws:aws-lambda-java-events:2.2.7'
+    compile 'com.amazonaws:aws-java-sdk-s3:1.11.762'
+    compile 'com.amazonaws:aws-lambda-java-log4j:1.0.0'
+    compile "com.amazonaws:aws-java-sdk-dynamodb:${amazonDynamoSdk}"
+    compile "com.fasterxml.jackson.core:jackson-databind:${jacksonDataBindVersion}"
+    testCompile 'junit:junit:4.12'
+}
+
+
