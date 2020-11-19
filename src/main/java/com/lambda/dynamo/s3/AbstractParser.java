@@ -1,12 +1,18 @@
 package com.lambda.dynamo.s3;
 
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.ScanRequest;
+import com.amazonaws.services.dynamodbv2.model.ScanResult;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.event.S3EventNotification;
 import com.amazonaws.services.s3.model.S3Object;
+import com.lambda.dynamo.DynamoConstants;
+import com.lambda.dynamo.DynamoDBInstanceFactory;
 import com.lambda.dynamo.GatewayResponse;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
@@ -22,6 +28,7 @@ import java.util.Optional;
 public abstract class AbstractParser implements RequestHandler<S3EventNotification, GatewayResponse> {
   private static final AmazonS3 S3 = AmazonS3ClientBuilder.standard().withRegion(Regions.EU_CENTRAL_1).build();
   private static final Logger LOGGER = LogManager.getLogger(AbstractParser.class);
+  private final AmazonDynamoDB client = DynamoDBInstanceFactory.getDynamoDBClient();
 
   @Override
   public GatewayResponse handleRequest(S3EventNotification event, Context context) {
@@ -55,6 +62,7 @@ public abstract class AbstractParser implements RequestHandler<S3EventNotificati
                 "Build the json string", System.lineSeparator(), builder.toString()));
         List<Object> users = getUsers(builder.toString());
         responseString = this.save(users);
+        scanItems();
       } catch (IOException e) {
         e.printStackTrace();
         context.getLogger().log(String.format("Error getting object %s from bucket %s. Make sure they exist and"
@@ -67,4 +75,23 @@ public abstract class AbstractParser implements RequestHandler<S3EventNotificati
 
   protected abstract GatewayResponse save(List<Object> users);
   protected abstract List<Object> getUsers(String body) throws IOException;
+
+  private void scanItems() {
+    Map<String, AttributeValue> lastKeyEvaluated = null;
+    do {
+      ScanRequest scanRequest = new ScanRequest()
+          .withTableName(DynamoConstants.TABLE_NAME)
+          .withLimit(2)
+          .withExclusiveStartKey(lastKeyEvaluated);
+
+      LOGGER.info("Trying to get items");
+
+      ScanResult result = client.scan(scanRequest);
+      for (Map<String, AttributeValue> item : result.getItems()) {
+        LOGGER.info("scanned item" + item);
+      }
+      lastKeyEvaluated = result.getLastEvaluatedKey();
+    } while (lastKeyEvaluated != null);
+
+  }
 }
